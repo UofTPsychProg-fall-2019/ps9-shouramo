@@ -31,18 +31,23 @@ ipip <- read_csv('ipip50_sample.csv')
 # to long format with a gather command on the trait items (A_1...O_10):
 # **HINT: The long format data set should have 42000 rows**
 ipip.l <- ipip %>% 
-  ...
+  gather('A_1', 'A_2', 'A_3', 'A_4', 'A_5', 'A_6', 'A_7', 'A_8', 'A_9', 'A_10', 
+         'C_1', 'C_2', 'C_3', 'C_4', 'C_5', 'C_6', 'C_7', 'C_8', 'C_9', 'C_10',
+         'E_1', 'E_2', 'E_3', 'E_4', 'E_5', 'E_6', 'E_7', 'E_8', 'E_9', 'E_10',
+         'N_1', 'N_2', 'N_3', 'N_4', 'N_5', 'N_6', 'N_7', 'N_8', 'N_9', 'N_10',
+         'O_1', 'O_10', key=traits, value=score)
 
 # We need a column that identifies rows as belonging to a specific trait,
 # but the column you created based on the trait items includes both trait
 # and item (e.g., A_1, but we want A in a separate column from item 1).
 # Make this happen with a separate command:
 ipip.l <- ipip.l %>% 
-  ...
+  separate(traits,c('trait', 'item'), sep = "_")
 
 # Calculate averages for each participant (coded as RID) and trait:
 ipip.comp <- ipip.l %>% 
-  ...
+  group_by(RID, trait) %>% 
+  summarise(avg_trait=mean(score))
 
 
 # Cleaning up the other variables -----------------------------------------
@@ -54,13 +59,19 @@ ipip.comp <- ipip.l %>%
 # HINT: use a select call on ipip to only select the columns that you want to
 # merge with ipip.comp
 ipip.comp <- ipip %>% 
-  ...
+  select(RID, age, gender, exer, BMI) %>%
+  right_join(ipip.comp)
 
 # One last thing, our exercise variable is all out of order. Because it was read
 # in as a character string, it is in alphabetical order. Let's turn it into a 
 # factor and reorder the levels according to increasing frequency. Do this by 
 # using the factor command and its levels argument:
-ipip.comp$exer <- ...
+ipip.comp$exer <-  factor(ipip.comp$exer,
+                          levels=c('veryRarelyNever','less1mo', 
+                                   'less1wk', '1or2wk','3or5wk','more5wk'))
+
+
+
 
 
 
@@ -71,7 +82,9 @@ ipip.comp$exer <- ...
 # of the mean (i.e., standard deviation divided by the square root of the 
 # number of participants; use variable name 'sem'):
 exer.avg <- ipip.comp %>% 
-  ...
+  group_by(trait,exer) %>% 
+  summarize(avge=mean(avg_trait),sem=(sd(avg_trait)/sqrt(1000)))
+
 
 # If you properly created the exer.avg tibble above, the following code will 
 # create a plot and save it as figures/exer.pdf. Check your figure with 
@@ -86,6 +99,8 @@ ggsave('figures/exer.pdf',units='in',width=7,height=5)
 
 # repeat the above summary commands for gender:
 gender.avg <- ipip.comp %>% 
+  group_by(gender, trait) %>%
+  summarise(avg=mean(avg_trait), sem=(sd(avg_trait)/sqrt(1000)))
   ...
 
 # create a gender plot and compare to the answer figure:
@@ -103,13 +118,21 @@ ggsave('figures/gender.pdf',units='in',width=5,height=5)
 # HINT: check out the case_when function:
 #     https://dplyr.tidyverse.org/reference/case_when.html
 ipip.comp <- ipip.comp %>% 
-  ...
+  mutate(BMI_cat = case_when(BMI<18.5 ~'underweight',
+                             BMI>=18.5 & BMI <=25 ~ 'healthy', 
+                             BMI>25 & BMI <= 30 ~ 'overweight', 
+                             BMI>30 ~'obese'))
 # turn BMI_cat into a factor and order it with levels
-ipip.comp$BMI_cat <- ...
+ipip.comp$BMI_cat <- factor(ipip.comp$BMI_cat,
+                            ordered=TRUE,
+                            levels=c('underweight','healthy',
+                                     'overweight','obese'))
 
 # summarise trait values by BMI categories  
 bmi.avg <- ipip.comp %>% 
-  ...  
+  group_by(BMI_cat,trait) %>% 
+  summarise(avg = mean(avg_trait),
+            sem = (sd(avg_trait)/sqrt(1000)))
 
 # create BMI plot and compare to the answer figure:
 ggplot(bmi.avg,aes(x=trait,y=avg,colour=BMI_cat))+
@@ -123,7 +146,8 @@ ggsave('figures/BMI.pdf',units='in',width=7,height=5)
 # between age and the big 5
 # NOTE: check out the cor() function by running ?cor in the console
 age.avg <- ipip.comp %>% 
-  ...
+  group_by(trait) %>%
+  summarise(corrcoef=cor(age,avg_trait))
 
 # create age plot and compare to the answer figure
 ggplot(age.avg,aes(x=trait,y=corrcoef))+
